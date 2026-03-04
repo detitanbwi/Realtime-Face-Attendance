@@ -36,7 +36,19 @@ class AdminController extends Controller
     public function dashboard()
     {
         $attendances = Attendance::with('user')->orderBy('date', 'desc')->orderBy('time_in', 'desc')->get();
-        return view('admin.dashboard', compact('attendances'));
+        // Face Authentication Data
+        $faceLogs = \App\Models\AttendanceLog::with('faceRegistration')->whereDate('check_in_time', today())->get();
+        $faceUsers = \App\Models\FaceRegistration::where('is_used', true)->get();
+        $faceTokens = \App\Models\FaceRegistration::where('is_used', false)->get();
+
+        return view('admin.dashboard', compact('attendances', 'faceLogs', 'faceUsers', 'faceTokens'));
+    }
+
+    public function generateFaceToken()
+    {
+        $token = strtoupper(\Illuminate\Support\Str::random(8));
+        \App\Models\FaceRegistration::create(['token' => $token]);
+        return back()->with('success', "Token pendaftaran wajah baru berhasil dibuat: $token");
     }
 
     public function logout(Request $request)

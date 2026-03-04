@@ -14,6 +14,7 @@ Route::post('/admin/login', [AdminController::class, 'login']);
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::post('/admin/face-token/generate', [AdminController::class, 'generateFaceToken'])->name('face.token.generate');
     Route::post('/admin/logout', [AdminController::class, 'logout'])->name('logout');
 
     Route::get('/admin/users', [UserController::class, 'index'])->name('users.index');

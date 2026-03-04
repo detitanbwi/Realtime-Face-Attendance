@@ -133,4 +133,137 @@
             </table>
         </div>
     </div>
+
+    <!-- Face Authentication Dashboard Sections -->
+    <div class="mt-12 mb-8 flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">Sistem Absensi Wajah Terpusat (Face Recognition)</h2>
+            <p class="text-md text-gray-500 mt-1">Mengelola Pendaftaran, Data Wajah (Vector Embedding), dan Kehadiran Secara
+                Real-Time.</p>
+        </div>
+        <form action="{{ route('face.token.generate') }}" method="POST">
+            @csrf
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow">
+                + Buat Token Pendaftaran
+            </button>
+        </form>
+    </div>
+
+    @if(session('success'))
+        <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
+            <strong>Berhasil!</strong> {{ session('success') }}
+        </div>
+    @endif
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Token Aktif -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-bold">Token Pendaftaran Aktif</h3>
+                <p class="text-sm text-gray-500">Berikan Token ini pada Karyawan agar mereka dapat menggunakan
+                    Face-Registration di handphone.</p>
+            </div>
+            <div class="p-4">
+                @if($faceTokens->count() > 0)
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        @foreach($faceTokens as $t)
+                            <div
+                                class="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-lg font-bold text-center tracking-widest text-lg">
+                                {{ $t->token }}
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-gray-500 text-center py-4">Tidak ada token aktif. Silahkan buat Token baru.</p>
+                @endif
+            </div>
+        </div>
+
+        <!-- Log Kehadiran Realtime -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-bold">Log Absensi Wajah Hari Ini</h3>
+                <p class="text-sm text-gray-500">Daftar kehadiran tersinkronisasi realtime dari verifikasi Model Edge
+                    Computing.</p>
+            </div>
+            <div class="overflow-x-auto p-4">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Nama (NIA)</th>
+                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Waktu Terekam</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($faceLogs as $fLog)
+                            <tr class="border-t border-gray-100">
+                                <td class="px-4 py-2">
+                                    <div class="font-medium text-gray-900">{{ $fLog->faceRegistration->name ?? '-' }}</div>
+                                    <div class="text-xs text-gray-500">{{ $fLog->faceRegistration->nia ?? '-' }}</div>
+                                </td>
+                                <td class="px-4 py-2 text-sm">
+                                    <span
+                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                        {{ \Carbon\Carbon::parse($fLog->check_in_time)->format('H:i:s') }}
+                                    </span>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="2" class="px-4 py-4 text-center text-sm text-gray-500">Belum ada absen dari
+                                    pengenalan wajah hari ini.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Orang Terdaftar -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-8">
+        <div class="p-6 border-b border-gray-200">
+            <h3 class="text-lg font-bold">Direktori Pengguna (Face Embedding)</h3>
+            <p class="text-sm text-gray-500">Daftar Face Embedding yang digunakan Model Verifikasi untuk pembandingan jarak
+                terdekat.</p>
+        </div>
+        <div class="overflow-x-auto p-4">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">ID Edge</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nama Pengguna</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">NIA</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status Vektor</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    @forelse($faceUsers as $fUser)
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-sm font-medium">#{{ $fUser->id }}</td>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ $fUser->name }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-500">{{ $fUser->nia }}</td>
+                            <td class="px-4 py-3 text-sm">
+                                @if(is_array($fUser->face_embedding) || is_string($fUser->face_embedding))
+                                    <span
+                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                        128-D Tersedia
+                                    </span>
+                                @else
+                                    <span class="text-red-500 text-xs">Kosong</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-sm text-blue-600 font-medium">Valid</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada user yang direkam
+                                wajahnya.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
 @endsection

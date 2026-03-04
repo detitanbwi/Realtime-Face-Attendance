@@ -148,4 +148,54 @@ class ApiService {
     var responseData = await response.stream.bytesToString();
     return jsonDecode(responseData);
   }
+
+  // Face Attendance Methods
+  Future<bool> verifyFaceToken(String access_token) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/verify-token'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'token': access_token}),
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> registerFace({
+    required String token,
+    required String name,
+    required String nia,
+    required String address,
+    required String birthDate,
+    required List<double> embedding,
+  }) async {
+    final response = await http.post(
+        Uri.parse('$baseUrl/register-face'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+            'token': token,
+            'name': name,
+            'nia': nia,
+            'address': address,
+            'birth_date': birthDate,
+            'face_embedding': embedding
+        })
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<Map<String, dynamic>> getSyncData() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/sync-data'),
+      headers: await _getHeaders()
+    );
+    return jsonDecode(response.body);
+  }
+
+  Future<bool> logFaceAttendance(int faceRegistrationId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/log-attendance'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'face_registration_id': faceRegistrationId}),
+    );
+    return response.statusCode == 200;
+  }
 }

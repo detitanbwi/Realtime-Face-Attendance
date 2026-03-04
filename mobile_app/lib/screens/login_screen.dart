@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'main_screen.dart';
-
+import 'face_registration_screen.dart';
+import 'face_attendance_screen.dart';
 class LoginScreen extends StatefulWidget {
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -122,6 +123,51 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: _login,
                         child: Text('Sign In'),
                       ),
+              ),
+              SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(color: Color(0xFF135BEC)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => FaceRegistrationScreen()));
+                      },
+                      child: Column(
+                        children: [
+                          Icon(Icons.face_retouching_natural, color: Color(0xFF135BEC)),
+                          SizedBox(height: 4),
+                          Text('Daftar\nWajah', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Color(0xFF135BEC))),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: Color(0xFF135BEC),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => FaceAttendanceScreen()));
+                      },
+                      child: Column(
+                        children: [
+                          Icon(Icons.camera_front),
+                          SizedBox(height: 4),
+                          Text('Absen\nWajah', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

@@ -1,0 +1,26 @@
+# Laravel
+web-admin/.env
+web-admin/vendor/
+web-admin/node_modules/
+web-admin/storage/*.key
+web-admin/storage/logs/
+web-admin/bootstrap/cache/
+
+# Flutter
+mobile_app/.dart_tool/
+mobile_app/.packages
+mobile_app/build/
+mobile_app/.flutter-plugins
+mobile_app/.flutter-plugins-dependencies
+mobile_app/android/.gradle/
+mobile_app/android/app/build/
+mobile_app/ios/Pods/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db

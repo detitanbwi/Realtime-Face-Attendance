@@ -168,8 +168,22 @@
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                         @foreach($faceTokens as $t)
                             <div
-                                class="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-lg font-bold text-center tracking-widest text-lg">
+                                class="relative group bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-lg font-bold text-center tracking-widest text-lg">
                                 {{ $t->token }}
+                                <form action="{{ route('face.token.delete', $t->id) }}" method="POST"
+                                    class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                        class="bg-red-100 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 rounded-full p-1 shadow-sm transition-colors"
+                                        onclick="return confirm('Yakin ingin menghapus {{$t->token}}?')" title="Hapus Token">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </form>
                             </div>
                         @endforeach
                     </div>
@@ -192,6 +206,7 @@
                         <tr>
                             <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Nama (NIA)</th>
                             <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Waktu Terekam</th>
+                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Lokasi GPS</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -207,10 +222,22 @@
                                         {{ \Carbon\Carbon::parse($fLog->check_in_time)->format('H:i:s') }}
                                     </span>
                                 </td>
+                                <td class="px-4 py-2 text-xs text-gray-500">
+                                    @if($fLog->latitude && $fLog->longitude)
+                                        <div class="flex items-center gap-1">
+                                            <span>{{ number_format($fLog->latitude, 4) }}, {{ number_format($fLog->longitude, 4) }}</span>
+                                            <a href="https://www.google.com/maps/search/?api=1&query={{ $fLog->latitude }},{{ $fLog->longitude }}" target="_blank" class="text-blue-600 hover:text-blue-800" title="Buka Maps">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                            </a>
+                                        </div>
+                                    @else
+                                        <span class="text-gray-400">-</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="2" class="px-4 py-4 text-center text-sm text-gray-500">Belum ada absen dari
+                                <td colspan="3" class="px-4 py-4 text-center text-sm text-gray-500">Belum ada absen dari
                                     pengenalan wajah hari ini.</td>
                             </tr>
                         @endforelse

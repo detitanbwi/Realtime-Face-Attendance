@@ -57,11 +57,34 @@ class AttendanceApiController extends Controller
 
     public function logAttendance(Request $request)
     {
-        $request->validate(['face_registration_id' => 'required|exists:face_registrations,id']);
+        $request->validate([
+            'face_registration_id' => 'required|exists:face_registrations,id',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+        ]);
+
+        // Check if already attended today
+        $existingLog = AttendanceLog::where('face_registration_id', $request->face_registration_id)
+            ->whereDate('check_in_time', now()->toDateString())
+            ->first();
+
+        if ($existingLog) {
+            $reg = FaceRegistration::find($request->face_registration_id);
+            return response()->json([
+                'already_attended' => true,
+                'message' => 'Sudah absen hari ini',
+                'name' => $reg->name ?? '-',
+                'nia' => $reg->nia ?? '-',
+                'check_in_time' => $existingLog->check_in_time->format('H:i'),
+            ], 200);
+        }
+
         AttendanceLog::create([
             'face_registration_id' => $request->face_registration_id,
-            'check_in_time' => now()
+            'check_in_time' => now(),
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
         ]);
-        return response()->json(['message' => 'Attendance logged']);
+        return response()->json(['message' => 'Attendance logged', 'already_attended' => false]);
     }
 }

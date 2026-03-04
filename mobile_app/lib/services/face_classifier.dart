@@ -25,10 +25,10 @@ class FaceClassifier {
     return input;
   }
 
-  // Generate 128-D Vector
+  // Generate 192-D Vector
   List<double> getEmbedding(img.Image faceImage) {
     var input = preProcess(faceImage);
-    var output = List.generate(1, (i) => List.filled(128, 0.0));
+    var output = List.generate(1, (i) => List.filled(192, 0.0));
     _interpreter?.run(input, output);
     return output[0];
   }

@@ -9,6 +9,8 @@ class AttendanceLog extends Model
     protected $fillable = [
         'face_registration_id',
         'check_in_time',
+        'latitude',
+        'longitude',
     ];
 
     protected $casts = [

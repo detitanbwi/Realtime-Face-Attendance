@@ -46,9 +46,19 @@ class AdminController extends Controller
 
     public function generateFaceToken()
     {
-        $token = strtoupper(\Illuminate\Support\Str::random(8));
+        $token = strtoupper(\Illuminate\Support\Str::random(5));
         \App\Models\FaceRegistration::create(['token' => $token]);
         return back()->with('success', "Token pendaftaran wajah baru berhasil dibuat: $token");
+    }
+
+    public function deleteFaceToken($id)
+    {
+        $token = \App\Models\FaceRegistration::findOrFail($id);
+        if (!$token->is_used) {
+            $token->delete();
+            return back()->with('success', "Token {$token->token} berhasil dihapus.");
+        }
+        return back()->withErrors(['error' => 'Token sudah digunakan dan tidak bisa dihapus.']);
     }
 
     public function logout(Request $request)

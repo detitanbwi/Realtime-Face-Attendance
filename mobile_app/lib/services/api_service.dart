@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Use your local IP if testing on real device, or 10.0.2.2 for Android Emulator
   // Adjust the port if your Laravel server runs on a different port (default 80 or 8000)
-  static const String baseUrl = 'http://10.152.5.59/flutter-absen/web-admin/public/api';
+  static const String baseUrl = 'http://192.168.1.9/flutter-absen/web-admin/public/api';
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -190,12 +190,23 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  Future<bool> logFaceAttendance(int faceRegistrationId) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/log-attendance'),
-      headers: await _getHeaders(),
-      body: jsonEncode({'face_registration_id': faceRegistrationId}),
-    );
-    return response.statusCode == 200;
+  Future<Map<String, dynamic>?> logFaceAttendance(int faceRegistrationId, {double? latitude, double? longitude}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/log-attendance'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'face_registration_id': faceRegistrationId,
+          'latitude': latitude,
+          'longitude': longitude,
+        }),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 }

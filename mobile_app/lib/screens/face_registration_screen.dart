@@ -334,6 +334,9 @@ class __CameraCaptureDialogState extends State<_CameraCaptureDialog> {
   bool _isFaceDetected = false;
   bool _isEmbeddingGenerated = false;
   String _debugMessage = "";
+  
+  bool _isReadyToRecord = false;
+  List<double>? _readyEmbedding;
 
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
@@ -457,25 +460,6 @@ class __CameraCaptureDialogState extends State<_CameraCaptureDialog> {
         return;
       }
       
-      // Check Brightness/Luminance (Y-plane from YUV420)
-      int totalLuminance = 0;
-      final bytes = image.planes[0].bytes;
-      int skipCount = 10;
-      for (int i = 0; i < bytes.length; i += skipCount) {
-        totalLuminance += bytes[i];
-      }
-      double avgLuminance = totalLuminance / (bytes.length / skipCount);
-      
-      if (avgLuminance < 35) {
-        if (mounted) setState(() { 
-           _statusMessage = "Cahaya redup, cari tempat terang"; 
-           _debugMessage = "Gelap (Luma: ${avgLuminance.toStringAsFixed(1)})";
-           _isEmbeddingGenerated = false; 
-        });
-        _isProcessingImage = false;
-        return;
-      }
-
       final faces = await _faceDetector.processImage(inputImage);
       if (mounted) setState(() {
           _facesCount = faces.length;
@@ -494,14 +478,19 @@ class __CameraCaptureDialogState extends State<_CameraCaptureDialog> {
           }
           final bbox = face.boundingBox;
           
-          if (bbox.left < 20 || bbox.top < 20 || bbox.right > convertedImage.width - 20 || bbox.bottom > convertedImage.height - 20) {
-            if (mounted) setState(() { _isEmbeddingGenerated = false; _statusMessage = "Posisikan wajah Anda di tengah layar"; });
+          double limitX = convertedImage.width * 0.1;
+          double limitY = convertedImage.height * 0.1;
+
+          if (bbox.left < limitX || bbox.top < limitY || 
+              bbox.right > convertedImage.width - limitX || 
+              bbox.bottom > convertedImage.height - limitY) {
+            if (mounted) setState(() { _isEmbeddingGenerated = false; _isReadyToRecord = false; _statusMessage = "Posisikan wajah Anda tepat di tengah oval"; });
             _isProcessingImage = false;
             return;
           }
 
-          if (bbox.width < 120 || bbox.height < 120) {
-            if (mounted) setState(() { _isEmbeddingGenerated = false; _statusMessage = "Wajah terlalu jauh, mohon mendekat"; });
+          if (bbox.width < convertedImage.width * 0.25 || bbox.height < convertedImage.height * 0.25) {
+            if (mounted) setState(() { _isEmbeddingGenerated = false; _isReadyToRecord = false; _statusMessage = "Wajah terlalu jauh, mohon mendekat"; });
             _isProcessingImage = false;
             return;
           }
@@ -515,21 +504,47 @@ class __CameraCaptureDialogState extends State<_CameraCaptureDialog> {
           int h = (bbox.height + marginY * 2).toInt().clamp(0, convertedImage.height - y);
 
           img.Image croppedFace = img.copyCrop(convertedImage, x: x, y: y, width: w, height: h);
+          
+          // SPECIFIC FACE LUMINANCE CHECK (Anti-Backlight)
+          double totalLuma = 0;
+          int count = 0;
+          for (int py = 0; py < croppedFace.height; py += 5) {
+            for (int px = 0; px < croppedFace.width; px += 5) {
+               var pixel = croppedFace.getPixel(px, py);
+               var luma = 0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b;
+               totalLuma += luma;
+               count++;
+            }
+          }
+          double faceLuma = count > 0 ? (totalLuma / count) : 0;
+          
+          if (faceLuma < 35) {
+             if (mounted) setState(() { 
+                 _isEmbeddingGenerated = false; 
+                 _isReadyToRecord = false;
+                 _statusMessage = "Wajah gelap/siluet, hadap ke cahaya"; 
+                 _debugMessage = "Wajah Gelap: ${faceLuma.toStringAsFixed(1)}";
+             });
+             _isProcessingImage = false;
+             return;
+          }
+          
+          if (mounted) setState(() { _debugMessage = "Info Luma Wajah: ${faceLuma.toStringAsFixed(1)}"; });
+
           final embedding = widget.faceClassifier.getEmbedding(croppedFace);
 
           if (mounted) setState(() {
               _isEmbeddingGenerated = true;
+              _isReadyToRecord = true;
+              _readyEmbedding = embedding;
+              _statusMessage = "Wajah Terdeteksi Sempurna!\nTekan tombol Simpan di bawah.";
           });
           
-          if (_cameraController!.value.isStreamingImages) {
-            await _cameraController!.stopImageStream();
-          }
-          
-          await Future.delayed(Duration(milliseconds: 500));
-          if (mounted) Navigator.pop(context, embedding);
         } else {
-            if (mounted) setState(() { _debugMessage = "Gagal konversi Image"; });
+            if (mounted) setState(() { _debugMessage = "Gagal konversi Image"; _isReadyToRecord = false; });
         }
+      } else {
+         if (mounted) setState(() { _isReadyToRecord = false; _statusMessage = "Posisikan wajah Anda\ndiantara frame"; });
       }
     } catch(e) {
       if (mounted) setState(() { _debugMessage = "Error ML: $e"; });
@@ -653,8 +668,24 @@ class __CameraCaptureDialogState extends State<_CameraCaptureDialog> {
                   Text(
                     _statusMessage,
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: _isReadyToRecord ? Colors.green : Colors.black),
                   ),
+                  SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 45,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isReadyToRecord ? Colors.green : Colors.grey,
+                      ),
+                      icon: Icon(Icons.camera, color: Colors.white),
+                      label: Text('Simpan Wajah Ini', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: _isReadyToRecord ? () {
+                         if (_cameraController!.value.isStreamingImages) _cameraController!.stopImageStream();
+                         Navigator.pop(context, _readyEmbedding);
+                      } : null,
+                    )
+                  )
                 ],
               ),
             )
@@ -668,10 +699,13 @@ class __CameraCaptureDialogState extends State<_CameraCaptureDialog> {
 class FaceGuidePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    double ovalWidth = size.width * 0.7; // 70% of screen width
+    double ovalHeight = size.height * 0.6; // 60% of screen height
+
     final rect = Rect.fromCenter(
-      center: Offset(size.width / 2, size.height / 2 - 40),
-      width: 240,
-      height: 320,
+      center: Offset(size.width / 2, size.height / 2),
+      width: ovalWidth,
+      height: ovalHeight,
     );
     
     final paint = Paint()

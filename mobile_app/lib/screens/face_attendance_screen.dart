@@ -258,25 +258,6 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
         return;
       }
 
-      // Check Brightness/Luminance (Y-plane from YUV420)
-      int totalLuminance = 0;
-      final bytes = image.planes[0].bytes;
-      int skipCount = 10;
-      for (int i = 0; i < bytes.length; i += skipCount) {
-        totalLuminance += bytes[i];
-      }
-      double avgLuminance = totalLuminance / (bytes.length / skipCount);
-      
-      if (avgLuminance < 35) {
-        if (mounted) setState(() { 
-           _status = "Cahaya terlalu diredam, cari tempat terang"; 
-           _debugMessage = "Gelap (Luma: ${avgLuminance.toStringAsFixed(1)})";
-           _isEmbeddingGenerated = false; 
-        });
-        _isProcessing = false;
-        return;
-      }
-
       final faces = await _faceDetector.processImage(inputImage);
       if (mounted) setState(() {
           _facesCount = faces.length;
@@ -294,17 +275,21 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
           }
           final bbox = face.boundingBox;
           
-          // STRICT BOUNDARY CHECK: Face MUST be fully inside the camera view with padding.
-          // This entirely prevents the AI from analyzing "wall/background" textures which cause false 80%+ matches.
-          if (bbox.left < 20 || bbox.top < 20 || bbox.right > convertedImage.width - 20 || bbox.bottom > convertedImage.height - 20) {
-            if (mounted) setState(() { _isEmbeddingGenerated = false; _status = "Posisikan wajah Anda di tengah layar"; });
+          // STRICT BOUNDARY CHECK: Use 10% of image size instead of flat 20px
+          double limitX = convertedImage.width * 0.1;
+          double limitY = convertedImage.height * 0.1;
+
+          if (bbox.left < limitX || bbox.top < limitY || 
+              bbox.right > convertedImage.width - limitX || 
+              bbox.bottom > convertedImage.height - limitY) {
+            if (mounted) setState(() { _isEmbeddingGenerated = false; _status = "Posisikan wajah Anda tepat di tengah oval"; });
             _isProcessing = false;
             return;
           }
 
-          // MINIMUM SIZE CHECK: Face must be close enough to have clear features.
-          if (bbox.width < 120 || bbox.height < 120) {
-            if (mounted) setState(() { _isEmbeddingGenerated = false; _status = "Mohon dekatkan wajah Anda ke kamera"; });
+          // MINIMUM SIZE CHECK
+          if (bbox.width < convertedImage.width * 0.25 || bbox.height < convertedImage.height * 0.25) {
+            if (mounted) setState(() { _isEmbeddingGenerated = false; _status = "Wajah terlalu jauh, mohon mendekat"; });
             _isProcessing = false;
             return;
           }
@@ -318,6 +303,33 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
           int h = (bbox.height + marginY * 2).toInt().clamp(0, convertedImage.height - y);
 
           img.Image croppedFace = img.copyCrop(convertedImage, x: x, y: y, width: w, height: h);
+          
+          // SPECIFIC FACE LUMINANCE CHECK (Anti-Backlight)
+          double totalLuma = 0;
+          int count = 0;
+          for (int py = 0; py < croppedFace.height; py += 5) {
+            for (int px = 0; px < croppedFace.width; px += 5) {
+               var pixel = croppedFace.getPixel(px, py);
+               // Grayscale luminance formula
+               var luma = 0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b;
+               totalLuma += luma;
+               count++;
+            }
+          }
+          double faceLuma = count > 0 ? (totalLuma / count) : 0;
+          
+          if (faceLuma < 32) {
+             if (mounted) setState(() { 
+                 _isEmbeddingGenerated = false; 
+                 _status = "Wajah gelap/siluet, hadap ke cahaya"; 
+                 _debugMessage = "Wajah Gelap: ${faceLuma.toStringAsFixed(1)}";
+             });
+             _isProcessing = false;
+             return;
+          }
+          
+          if (mounted) setState(() { _debugMessage = "Info Luma Wajah: ${faceLuma.toStringAsFixed(1)}"; });
+
           final embedding = _faceClassifier.getEmbedding(croppedFace);
           
           if(mounted) setState(() { _isEmbeddingGenerated = true; });
@@ -639,10 +651,13 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
 class FaceGuidePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    double ovalWidth = size.width * 0.7; // 70% of screen width
+    double ovalHeight = size.height * 0.6; // 60% of screen height
+
     final rect = Rect.fromCenter(
-      center: Offset(size.width / 2, size.height / 2 - 40),
-      width: 240,
-      height: 320,
+      center: Offset(size.width / 2, size.height / 2),
+      width: ovalWidth,
+      height: ovalHeight,
     );
     
     final paint = Paint()

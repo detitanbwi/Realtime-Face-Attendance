@@ -12,9 +12,19 @@ class AttendanceApiController extends Controller
 {
     public function verifyToken(Request $request)
     {
-        $token = FaceRegistration::where('token', $request->token)->where('is_used', false)->first();
+        $token = \App\Models\RegistrationToken::where('token', $request->token)->first();
         if (!$token)
-            return response()->json(['error' => 'Token invalid or used'], 400);
+            return response()->json(['error' => 'Token invalid or not found'], 400);
+
+        if ($token->valid_from && now() < $token->valid_from)
+            return response()->json(['error' => 'Token belum aktif'], 400);
+
+        if ($token->valid_until && now() > $token->valid_until)
+            return response()->json(['error' => 'Token sudah kadaluarsa'], 400);
+
+        if ($token->max_usage && $token->current_usage >= $token->max_usage)
+            return response()->json(['error' => 'Batas penggunaan token telah habis'], 400);
+
         return response()->json(['message' => 'Token valid']);
     }
 
@@ -29,15 +39,25 @@ class AttendanceApiController extends Controller
             'birth_date' => 'required|date'
         ]);
 
-        $reg = FaceRegistration::where('token', $request->token)->where('is_used', false)->first();
-        if (!$reg)
-            return response()->json(['error' => 'Token invalid or used'], 400);
+        $token = \App\Models\RegistrationToken::where('token', $request->token)->first();
+        if (!$token)
+            return response()->json(['error' => 'Token invalid or not found'], 400);
+
+        if ($token->valid_from && now() < $token->valid_from)
+            return response()->json(['error' => 'Token belum aktif'], 400);
+
+        if ($token->valid_until && now() > $token->valid_until)
+            return response()->json(['error' => 'Token sudah kadaluarsa'], 400);
+
+        if ($token->max_usage && $token->current_usage >= $token->max_usage)
+            return response()->json(['error' => 'Batas penggunaan token telah habis'], 400);
 
         if ($request->nia && FaceRegistration::where('nia', $request->nia)->exists()) {
             return response()->json(['error' => 'NIA already registered'], 400);
         }
 
-        $reg->update([
+        FaceRegistration::create([
+            'token' => 'REG_' . \Illuminate\Support\Str::uuid(),
             'name' => $request->name,
             'nia' => $request->nia,
             'face_embedding' => $request->face_embedding,
@@ -45,6 +65,8 @@ class AttendanceApiController extends Controller
             'birth_date' => $request->birth_date,
             'is_used' => true
         ]);
+
+        $token->increment('current_usage');
 
         return response()->json(['message' => 'Registration successful']);
     }

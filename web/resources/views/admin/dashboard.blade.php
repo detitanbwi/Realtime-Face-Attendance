@@ -141,13 +141,72 @@
             <p class="text-md text-gray-500 mt-1">Mengelola Pendaftaran, Data Wajah (Vector Embedding), dan Kehadiran Secara
                 Real-Time.</p>
         </div>
-        <form action="{{ route('face.token.generate') }}" method="POST">
-            @csrf
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow">
-                + Buat Token Pendaftaran
-            </button>
-        </form>
+        <button onclick="document.getElementById('tokenModal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow">
+            + Buat Token Baru
+        </button>
     </div>
+
+    <!-- Modal Token -->
+    <div id="tokenModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Buat Token Pendaftaran</h3>
+                <form action="{{ route('face.token.generate') }}" method="POST">
+                    @csrf
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipe Batas Waktu</label>
+                        <select name="token_type" id="token_type" class="w-full border-gray-300 rounded-md shadow-sm p-2 border" onchange="toggleTokenFields()">
+                            <option value="unlimited">Tanpa Batas Waktu</option>
+                            <option value="duration">Berdasarkan Durasi (Jam)</option>
+                            <option value="date">Berdasarkan Rentang Tanggal</option>
+                        </select>
+                    </div>
+
+                    <div id="duration_div" class="hidden mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Durasi Aktif (Jam)</label>
+                        <input type="number" name="duration_hours" class="w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Misal: 24">
+                    </div>
+
+                    <div id="date_div" class="hidden mb-4 space-y-2">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Berlaku Dari</label>
+                            <input type="datetime-local" name="start_date" class="w-full border-gray-300 rounded-md shadow-sm p-2 border">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Berlaku Sampai</label>
+                            <input type="datetime-local" name="end_date" class="w-full border-gray-300 rounded-md shadow-sm p-2 border">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Maksimal Penggunaan Orang</label>
+                        <input type="number" name="max_usage" class="w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Kosong = Unlimited">
+                        <p class="text-xs text-gray-500 mt-1">Berapa kali token ini bisa dipakai user.</p>
+                    </div>
+
+                    <div class="pt-3 flex gap-2">
+                        <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Buat</button>
+                        <button type="button" onclick="document.getElementById('tokenModal').classList.add('hidden')" class="flex-1 bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">Batal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function toggleTokenFields() {
+            const type = document.getElementById('token_type').value;
+            document.getElementById('duration_div').classList.add('hidden');
+            document.getElementById('date_div').classList.add('hidden');
+            
+            if (type === 'duration') {
+                document.getElementById('duration_div').classList.remove('hidden');
+            } else if (type === 'date') {
+                document.getElementById('date_div').classList.remove('hidden');
+            }
+        }
+    </script>
 
     @if(session('success'))
         <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
@@ -168,8 +227,16 @@
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                         @foreach($faceTokens as $t)
                             <div
-                                class="relative group bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-lg font-bold text-center tracking-widest text-lg">
+                                class="relative group bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-lg font-bold text-center tracking-wide text-lg">
                                 {{ $t->token }}
+                                <div class="text-xs font-normal text-gray-600 mt-2">
+                                    Penggunaan: {{ $t->current_usage }} / {{ $t->max_usage ?? '∞' }}<br>
+                                    @if($t->valid_until)
+                                        S/d: {{ \Carbon\Carbon::parse($t->valid_until)->format('d M y H:i') }}
+                                    @else
+                                        Tanpa batas waktu
+                                    @endif
+                                </div>
                                 <form action="{{ route('face.token.delete', $t->id) }}" method="POST"
                                     class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     @csrf

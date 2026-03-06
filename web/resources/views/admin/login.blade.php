@@ -54,7 +54,20 @@
             </button>
         </form>
 
-        <div class="mt-6 text-center text-xs text-gray-400">
+        <div class="mt-8 border-t border-gray-200 pt-6">
+            <p class="text-sm text-center text-gray-500 mb-4">Belum punya aplikasi mobile?</p>
+            <a href="{{ asset('apk/app-release.apk') }}" download
+                class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium py-3 px-4 rounded-lg border border-emerald-200 transition flex justify-center items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd"
+                        d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                        clip-rule="evenodd" />
+                </svg>
+                Download APK Absensi
+            </a>
+        </div>
+
+        <div class="mt-8 text-center text-xs text-gray-400">
             &copy; 2026 Aplikasi Absensi Flutter & Laravel.
         </div>
     </div>

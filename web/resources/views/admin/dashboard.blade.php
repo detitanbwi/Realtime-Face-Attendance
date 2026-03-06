@@ -348,7 +348,21 @@
                                     <span class="text-red-500 text-xs">Kosong</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-sm text-blue-600 font-medium">Valid</td>
+                            <td class="px-4 py-3 text-sm font-medium flex gap-2">
+                                <span class="px-2 py-0.5 rounded text-xs text-blue-800 bg-blue-100 flex items-center">Valid</span>
+                                <form action="{{ route('face.user.delete', $fUser->id) }}" method="POST" class="inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" 
+                                        onclick="return confirm('Peringatan: Menghapus data wajah akan membuat pengguna {{ $fUser->name }} tidak bisa absen otomatis. Lanjutkan?')" 
+                                        class="bg-red-50 hover:bg-red-500 text-red-600 hover:text-white border border-red-200 hover:border-red-500 rounded px-2 py-1 text-xs transition-colors flex items-center shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Hapus Wajah
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                     @empty
                         <tr>

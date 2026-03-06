@@ -457,6 +457,25 @@ class __CameraCaptureDialogState extends State<_CameraCaptureDialog> {
         return;
       }
       
+      // Check Brightness/Luminance (Y-plane from YUV420)
+      int totalLuminance = 0;
+      final bytes = image.planes[0].bytes;
+      int skipCount = 10;
+      for (int i = 0; i < bytes.length; i += skipCount) {
+        totalLuminance += bytes[i];
+      }
+      double avgLuminance = totalLuminance / (bytes.length / skipCount);
+      
+      if (avgLuminance < 35) {
+        if (mounted) setState(() { 
+           _statusMessage = "Cahaya redup, cari tempat terang"; 
+           _debugMessage = "Gelap (Luma: ${avgLuminance.toStringAsFixed(1)})";
+           _isEmbeddingGenerated = false; 
+        });
+        _isProcessingImage = false;
+        return;
+      }
+
       final faces = await _faceDetector.processImage(inputImage);
       if (mounted) setState(() {
           _facesCount = faces.length;
@@ -474,10 +493,26 @@ class __CameraCaptureDialogState extends State<_CameraCaptureDialog> {
             convertedImage = img.copyRotate(convertedImage, angle: _cameraController!.description.sensorOrientation);
           }
           final bbox = face.boundingBox;
-          int x = bbox.left.toInt().clamp(0, convertedImage.width);
-          int y = bbox.top.toInt().clamp(0, convertedImage.height);
-          int w = bbox.width.toInt().clamp(0, convertedImage.width - x);
-          int h = bbox.height.toInt().clamp(0, convertedImage.height - y);
+          
+          if (bbox.left < 20 || bbox.top < 20 || bbox.right > convertedImage.width - 20 || bbox.bottom > convertedImage.height - 20) {
+            if (mounted) setState(() { _isEmbeddingGenerated = false; _statusMessage = "Posisikan wajah Anda di tengah layar"; });
+            _isProcessingImage = false;
+            return;
+          }
+
+          if (bbox.width < 120 || bbox.height < 120) {
+            if (mounted) setState(() { _isEmbeddingGenerated = false; _statusMessage = "Wajah terlalu jauh, mohon mendekat"; });
+            _isProcessingImage = false;
+            return;
+          }
+
+          double marginX = bbox.width * 0.05;
+          double marginY = bbox.height * 0.05;
+
+          int x = (bbox.left - marginX).toInt().clamp(0, convertedImage.width);
+          int y = (bbox.top - marginY).toInt().clamp(0, convertedImage.height);
+          int w = (bbox.width + marginX * 2).toInt().clamp(0, convertedImage.width - x);
+          int h = (bbox.height + marginY * 2).toInt().clamp(0, convertedImage.height - y);
 
           img.Image croppedFace = img.copyCrop(convertedImage, x: x, y: y, width: w, height: h);
           final embedding = widget.faceClassifier.getEmbedding(croppedFace);
@@ -568,9 +603,20 @@ class __CameraCaptureDialogState extends State<_CameraCaptureDialog> {
                 color: Colors.black,
                 child: Center(
                   child: _cameraController != null && _cameraController!.value.isInitialized
-                      ? AspectRatio(
-                          aspectRatio: 1 / _cameraController!.value.aspectRatio,
-                          child: CameraPreview(_cameraController!),
+                      ? Stack(
+                          children: [
+                            Positioned.fill(
+                              child: AspectRatio(
+                                aspectRatio: 1 / _cameraController!.value.aspectRatio,
+                                child: CameraPreview(_cameraController!),
+                              )
+                            ),
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: FaceGuidePainter(),
+                              ),
+                            ),
+                          ],
                         )
                       : CircularProgressIndicator(color: Colors.white),
                 ),
@@ -617,4 +663,38 @@ class __CameraCaptureDialogState extends State<_CameraCaptureDialog> {
       ),
     );
   }
+}
+
+class FaceGuidePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2 - 40),
+      width: 240,
+      height: 320,
+    );
+    
+    final paint = Paint()
+      ..color = Colors.black.withOpacity(0.65)
+      ..style = PaintingStyle.fill;
+      
+    final path = Path.combine(
+      PathOperation.difference,
+      Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height)),
+      Path()..addOval(rect),
+    );
+    
+    canvas.drawPath(path, paint);
+    
+    final borderPaint = Paint()
+      ..color = Colors.white70
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+      
+    canvas.drawOval(rect, borderPaint);
+    
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

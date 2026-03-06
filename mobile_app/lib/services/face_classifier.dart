@@ -33,12 +33,22 @@ class FaceClassifier {
     return output[0];
   }
 
-  // Euclidean Distance
-  double calculateDistance(List<double> emb1, List<double> emb2) {
-    double sum = 0.0;
+  // Cosine Similarity (Higher is better, 1.0 is exact match, 0.0 is orthogonal)
+  double calculateSimilarity(List<double> emb1, List<double> emb2) {
+    if (emb1.length != emb2.length) return 0.0;
+    
+    double dotProduct = 0.0;
+    double norm1 = 0.0;
+    double norm2 = 0.0;
+    
     for (int i = 0; i < emb1.length; i++) {
-      sum += pow(emb1[i] - emb2[i], 2);
+      dotProduct += emb1[i] * emb2[i];
+      norm1 += pow(emb1[i], 2);
+      norm2 += pow(emb2[i], 2);
     }
-    return sqrt(sum);
+    
+    if (norm1 == 0 || norm2 == 0) return 0.0;
+    
+    return dotProduct / (sqrt(norm1) * sqrt(norm2));
   }
 }

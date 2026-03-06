@@ -77,6 +77,14 @@ class AdminController extends Controller
         return back()->with('success', "Token {$token->token} berhasil dihapus.");
     }
 
+    public function deleteFaceUser($id)
+    {
+        $user = \App\Models\FaceRegistration::findOrFail($id);
+        $name = $user->name;
+        $user->delete();
+        return back()->with('success', "Data wajah pengguna {$name} berhasil dihapus.");
+    }
+
     public function logout(Request $request)
     {
         Auth::logout();

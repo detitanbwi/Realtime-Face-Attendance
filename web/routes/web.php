@@ -16,6 +16,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::post('/admin/face-token/generate', [AdminController::class, 'generateFaceToken'])->name('face.token.generate');
     Route::delete('/admin/face-token/{id}', [AdminController::class, 'deleteFaceToken'])->name('face.token.delete');
+    Route::delete('/admin/face-user/{id}', [AdminController::class, 'deleteFaceUser'])->name('face.user.delete');
     Route::post('/admin/logout', [AdminController::class, 'logout'])->name('logout');
 
     Route::get('/admin/users', [UserController::class, 'index'])->name('users.index');

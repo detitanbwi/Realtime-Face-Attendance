@@ -42,6 +42,7 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
   bool _isFaceDetected = false;
   bool _isEmbeddingGenerated = false;
   String _debugMessage = "";
+  double _lastSimilarity = 0.0;
   
   // Overlay states
   bool _showSuccessOverlay = false;
@@ -257,11 +258,29 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
         return;
       }
 
+      // Check Brightness/Luminance (Y-plane from YUV420)
+      int totalLuminance = 0;
+      final bytes = image.planes[0].bytes;
+      int skipCount = 10;
+      for (int i = 0; i < bytes.length; i += skipCount) {
+        totalLuminance += bytes[i];
+      }
+      double avgLuminance = totalLuminance / (bytes.length / skipCount);
+      
+      if (avgLuminance < 35) {
+        if (mounted) setState(() { 
+           _status = "Cahaya terlalu diredam, cari tempat terang"; 
+           _debugMessage = "Gelap (Luma: ${avgLuminance.toStringAsFixed(1)})";
+           _isEmbeddingGenerated = false; 
+        });
+        _isProcessing = false;
+        return;
+      }
+
       final faces = await _faceDetector.processImage(inputImage);
       if (mounted) setState(() {
           _facesCount = faces.length;
           _isFaceDetected = faces.isNotEmpty;
-          if (_isFaceDetected) _debugMessage = "Mencari kecocokan...";
       });
 
       if (faces.isNotEmpty) {
@@ -274,10 +293,29 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
             convertedImage = img.copyRotate(convertedImage, angle: _cameraController!.description.sensorOrientation);
           }
           final bbox = face.boundingBox;
-          int x = bbox.left.toInt().clamp(0, convertedImage.width);
-          int y = bbox.top.toInt().clamp(0, convertedImage.height);
-          int w = bbox.width.toInt().clamp(0, convertedImage.width - x);
-          int h = bbox.height.toInt().clamp(0, convertedImage.height - y);
+          
+          // STRICT BOUNDARY CHECK: Face MUST be fully inside the camera view with padding.
+          // This entirely prevents the AI from analyzing "wall/background" textures which cause false 80%+ matches.
+          if (bbox.left < 20 || bbox.top < 20 || bbox.right > convertedImage.width - 20 || bbox.bottom > convertedImage.height - 20) {
+            if (mounted) setState(() { _isEmbeddingGenerated = false; _status = "Posisikan wajah Anda di tengah layar"; });
+            _isProcessing = false;
+            return;
+          }
+
+          // MINIMUM SIZE CHECK: Face must be close enough to have clear features.
+          if (bbox.width < 120 || bbox.height < 120) {
+            if (mounted) setState(() { _isEmbeddingGenerated = false; _status = "Mohon dekatkan wajah Anda ke kamera"; });
+            _isProcessing = false;
+            return;
+          }
+
+          double marginX = bbox.width * 0.05; // Reduced margin to 5% to avoid capturing background
+          double marginY = bbox.height * 0.05;
+
+          int x = (bbox.left - marginX).toInt().clamp(0, convertedImage.width);
+          int y = (bbox.top - marginY).toInt().clamp(0, convertedImage.height);
+          int w = (bbox.width + marginX * 2).toInt().clamp(0, convertedImage.width - x);
+          int h = (bbox.height + marginY * 2).toInt().clamp(0, convertedImage.height - y);
 
           img.Image croppedFace = img.copyCrop(convertedImage, x: x, y: y, width: w, height: h);
           final embedding = _faceClassifier.getEmbedding(croppedFace);
@@ -302,7 +340,7 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
   }
 
   Future<void> _matchFace(List<double> currentEmbedding) async {
-    double minDistance = double.infinity;
+    double maxSimilarity = 0.0;
     dynamic matchedUser;
 
     for (var registered in _registeredFaces) {
@@ -320,15 +358,22 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
       }
 
       if (dbEmbedding != null) {
-        double distance = _faceClassifier.calculateDistance(currentEmbedding, dbEmbedding);
-        if (distance < minDistance) {
-          minDistance = distance;
+        double similarity = _faceClassifier.calculateSimilarity(currentEmbedding, dbEmbedding);
+        if (similarity > maxSimilarity) {
+          maxSimilarity = similarity;
           matchedUser = registered;
         }
       }
     }
 
-    if (minDistance < 0.8 && matchedUser != null) {
+    if (mounted) {
+      setState(() {
+        _lastSimilarity = maxSimilarity;
+        _debugMessage = "Akurasi Wajah (Sim): ${(maxSimilarity * 100).toStringAsFixed(1)}%";
+      });
+    }
+
+    if (maxSimilarity > 0.77 && matchedUser != null) {
       if (_showSuccessOverlay && _matchedName == matchedUser['name']) {
            return; 
       }
@@ -340,7 +385,9 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
            return; 
       }
 
-      if (mounted) setState(() { _status = "Menyimpan absensi..."; });
+      if (mounted) setState(() { 
+        _status = "Menyimpan absensi..."; 
+      });
       final result = await ApiService().logFaceAttendance(userId, latitude: _latitude, longitude: _longitude);
       
       if (!mounted) return;
@@ -380,6 +427,12 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
         });
       } else {
         setState(() { _status = "Gagal menyimpan jaringan."; });
+      }
+    } else {
+      if (mounted && _isFaceDetected && !_showSuccessOverlay) {
+         setState(() {
+           _status = "Wajah Tidak Dikenali";
+         });
       }
     }
   }
@@ -447,6 +500,11 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
                             AspectRatio(
                                 aspectRatio: 1 / _cameraController!.value.aspectRatio,
                                 child: CameraPreview(_cameraController!),
+                            ),
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: FaceGuidePainter(),
+                              ),
                             ),
                             // Gradient glow from edges (green=success, amber=already attended)
                             if (_showSuccessOverlay)
@@ -576,4 +634,39 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
             ),
     );
   }
+}
+
+class FaceGuidePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2 - 40),
+      width: 240,
+      height: 320,
+    );
+    
+    final paint = Paint()
+      ..color = Colors.black.withOpacity(0.65)
+      ..style = PaintingStyle.fill;
+      
+    final path = Path.combine(
+      PathOperation.difference,
+      Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height)),
+      Path()..addOval(rect),
+    );
+    
+    canvas.drawPath(path, paint);
+    
+    final borderPaint = Paint()
+      ..color = Colors.white70
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+      
+    canvas.drawOval(rect, borderPaint);
+    
+    // Add text guide inside painter if needed, or simply leave the hole
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Use your local IP if testing on real device, or 10.0.2.2 for Android Emulator
   // Adjust the port if your Laravel server runs on a different port (default 80 or 8000)
-  static const String baseUrl = 'http://192.168.1.9/flutter-absen/web-admin/public/api';
+  static const String baseUrl = 'https://faceid.wirodev.com/api';
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
